@@ -1,40 +1,50 @@
-================================================================================
 BÁO CÁO TIẾN ĐỘ THỰC HÀNH AN TOÀN HỆ THỐNG THÔNG TIN
 LAB 3: THIẾT LẬP MÔ HÌNH TƯỜNG LỬA pfSense (pfSense Firewall Configuration)
-================================================================================
 
 THÔNG TIN SINH VIÊN:
 
 - Họ và tên: Lê Tuấn Kiệt
 - Mã số sinh viên: 1150080022
 - Lớp: 11_ĐH_CNPM1
+- Khoa: Công nghệ Thông tin
+- Trường: Đại học Tài nguyên và Môi trường TP. Hồ Chí Minh
 - Môi trường triển khai: pfSense CE 2.7.2 (amd64) trên VMware Workstation Pro 17
 
 ================================================================================
 
-1. # CÁC NỘI DUNG VÀ THAO TÁC ĐÃ HOÀN THÀNH
+1. # BẢNG PHÂN BỔ ĐỊA CHỈ IP & THIẾT BỊ MÔ HÌNH
+   +--------------------+---------------+-----------------+---------------+---------------+-----------------------+
+   | Thiết bị | Interface | IP Address | Subnet Mask | Gateway | DNS |
+   +--------------------+---------------+-----------------+---------------+---------------+-----------------------+
+   | pfSense | WAN (Adapter1)| DHCP (Bridged) | 255.255.255.0 | Dynamic | Upstream ISP |
+   | pfSense | LAN (Adapter2)| 10.0.0.1 | 255.0.0.0 (/8)| --- | --- |
+   | pfSense | DMZ (Adapter3)| 172.16.0.1 | 255.255.0.0/16| --- | --- |
+   | Domain Controller | LAN (VMnet1) | 10.0.0.2 | 255.0.0.0 (/8)| 10.0.0.1 | 10.0.0.2 (Fwd:8.8.8.8)|
+   | Máy thật (Host) | LAN (VMnet1) | 10.0.0.100 | 255.0.0.0 (/8)| (Để trống) | (Để trống) |
+   | DMZ-Web Server | DMZ (dmz-net) | 172.16.0.2 | 255.255.0.0/16| 172.16.0.1 | 8.8.8.8 |
+   +--------------------+---------------+-----------------+---------------+---------------+-----------------------+
 
-[x] BƯỚC 1: XÁC THỰC VÀ GIẢI NÉN BỘ CÀI ĐẶT - Tệp gốc: pfSense-CE-2.7.2-RELEASE-amd64.iso.gz. - Giải nén bằng 7-Zip để thu được tệp đĩa quang: pfSense-CE-2.7.2-RELEASE-amd64.iso.
-
-[x] BƯỚC 2: CẤU HÌNH HẠ TẦNG MẠNG TRÊN MÁY THẬT & VMWARE WORKSTATION - Cấu hình card LAN ảo trên VMware Virtual Network Editor: + Sử dụng VMnet1 (Host-only). + Subnet IP: 10.0.0.0, Subnet Mask: 255.0.0.0 (/8). + Tắt hoàn toàn dịch vụ DHCP Server nội bộ của VMnet1. - Cấu hình địa chỉ IP tĩnh cho card mạng ảo máy thật (VMware Network Adapter VMnet1): + IPv4 Address: 10.0.0.100 + Subnet Mask: 255.0.0.0 + Default Gateway & DNS: Để trống hoàn toàn theo đúng quy chuẩn lab để tránh xung đột định tuyến mạng thật. - Tạo phân vùng mạng cô lập DMZ: + Tạo mạng nội bộ LAN Segment với định danh: "dmz-net".
-
-[x] BƯỚC 3: KHỞI TẠO MÁY ẢO pfSense - Hệ điều hành ảo: FreeBSD 13 (64-bit). - Cấu hình tài nguyên: 2 GB RAM, 2 vCPU, 20 GB Virtual Disk (Single file). - Gắn đủ 3 Card mạng ảo theo kiến trúc phân vùng: + Network Adapter 1: Bridged (Automatic) -> Đóng vai trò cổng WAN kết nối Internet. + Network Adapter 2: Custom (VMnet1) -> Đóng vai trò cổng LAN (10.0.0.0/8). + Network Adapter 3: LAN Segment (dmz-net) -> Đóng vai trò cổng DMZ (172.16.0.0/16). - Gắn file ISO vào ổ đĩa ảo CD/DVD IDE.
-
-[x] BƯỚC 4: TIẾN TRÌNH CÀI ĐẶT pfSense CE 2.7.2 - Khởi động máy ảo vào bộ cài đặt pfSense Installer. - Định dạng phân vùng đĩa cứng tự động bằng ZFS (Auto ZFS), chọn ổ cứng ảo da0 (20 GiB) ở chế độ Stripe. - Bung gói hệ điều hành thành công, từ chối mở Manual Shell và tiến hành Reboot hệ thống. - Ngắt kết nối ổ đĩa CD/DVD để hệ thống nạp trực tiếp từ đĩa cứng.
-
-[x] BƯỚC 5: THIẾT LẬP GIAO DIỆN LAN QUA CONSOLE pfSense - Truy cập Console thông qua menu lựa chọn hệ thống: + Chọn Option 2 (Set interface(s) IP address) để cấu hình cổng LAN (em1). + Tắt DHCP trên IPv4 cổng LAN. + Đặt địa chỉ IPv4 LAN mới: 10.0.0.1 + Đặt Subnet bit count: 8 (tương ứng 255.0.0.0). + Bỏ qua cấu hình Gateway và IPv6. + Xác nhận không revert về HTTP (giữ giao thức an toàn HTTPS). - pfSense hoàn tất áp dụng cấu hình và xuất đường dẫn quản trị: https://10.0.0.1/
-
-[x] BƯỚC 6: CẤU HÌNH BAN ĐẦU QUA TRÌNH DUYỆT WEB (SETUP WIZARD & DASHBOARD) - Từ máy thật truy cập https://10.0.0.1, đăng nhập bằng tài khoản mặc định admin / pfsense. - Hoàn thành Setup Wizard 9 bước: + Thiết lập Primary DNS Server: 8.8.8.8, Timezone: Asia/Ho_Chi_Minh. + Bỏ chọn 2 mục chặn trên cổng WAN: "Block RFC1918 Private Networks" và "Block bogon networks" để phục vụ bài lab. + Xác nhận lại thông số LAN 10.0.0.1/8. + Đổi mật khẩu quản trị tài khoản admin mới. - pfSense nạp thành công giao diện Dashboard với trạng thái hoạt động của CPU, RAM và các cổng mạng.
-
-[x] BƯỚC 7: CẤU HÌNH VÙNG DMZ & NAT TỰ ĐỘNG - Vào Interfaces -> Assignments: Thêm card mạng em2 làm cổng OPT1. - Vào Interfaces -> OPT1: Đổi tên thành DMZ, chọn Static IPv4, gán IP: 172.16.0.1/16 (IPv4 Upstream gateway để None). - Vào Firewall -> NAT -> Outbound: Chuyển chế độ sang "Hybrid Outbound NAT rule generation", hệ thống tự động sinh rule NAT cho dải 10.0.0.0/8 và 172.16.0.0/16 ra Internet.
-
-[x] BƯỚC 8: CHUẨN HÓA RULESET LAN & TẠO RULE NỀN TẢNG (BASELINE) - Vào Firewall -> Rules -> LAN: + Vô hiệu hóa (Disable / Toggle) 2 rule mặc định: "Default allow LAN to any rule" (IPv4 và IPv6). + Giữ nguyên "Anti-Lockout Rule" để bảo toàn kết nối WebGUI. - Tạo mới Firewall Rule nền tảng do người quản trị cấu hình: + Action: Pass + Interface: LAN (IPv4) + Protocol: Any + Source: LAN subnets (tương đương 10.0.0.0/8) + Destination: Any + Description: LAN to Internet - Thực hiện quy trình xóa sạch phiên kết nối: + Vào Diagnostics -> States -> Reset States. + Đánh dấu "Reset the firewall state table" và thực thi Reset để pfSense làm mới toàn bộ bảng theo dõi trạng thái.
-
-# ================================================================================ 2. CÁC HẠNG MỤC CẦN TRIỂN KHAI TIẾP THEO
-
-[ ] Dựng máy ảo Windows Server làm Domain Controller (IP: 10.0.0.2/8, Gateway: 10.0.0.1).
-[ ] Cài đặt vai trò AD DS, DNS Server và cấu hình DNS Forwarders (8.8.8.8).
-[ ] Kiểm thử bật/tắt rule nền tảng và thu thập kết quả ping/curl trên máy DC.
-[ ] Dựng máy ảo DMZ-Web (IP: 172.16.0.2/16) cài IIS trên mạng LAN Segment dmz-net.
-[ ] Thực hiện 5 tình huống firewall (Chặn ICMP, Chỉ định Host ra mạng, Cô lập DMZ, Port Forward WAN 8080->80, Logging).
+================================================================================ 2. CÁC NỘI DUNG VÀ THAO TÁC ĐÃ HOÀN THÀNH
 ================================================================================
+
+[x] BƯỚC 1: CẤU HÌNH HẠ TẦNG MẠNG TRÊN MÁY THẬT & VMWARE WORKSTATION - Virtual Network Editor: VMnet1 (Host-only), Subnet 10.0.0.0/8, tắt DHCP. - Cấu hình IP card VMnet1 máy thật: 10.0.0.100, Subnet mask 255.0.0.0 (không gateway/DNS). - Tạo mạng nội bộ LAN Segment: định danh "dmz-net".
+
+[x] BƯỚC 2: KHỞI TẠO MÁY ẢO pfSense - Cấu hình phần cứng: FreeBSD 13 (64-bit), 2 GB RAM, 2 vCPU, 20 GB Virtual Disk. - Gán đủ 3 card mạng: + Adapter 1: Bridged -> Cổng WAN kết nối Internet ngoài. + Adapter 2: Custom (VMnet1) -> Cổng LAN (10.0.0.0/8). + Adapter 3: LAN Segment (dmz-net) -> Cổng DMZ (172.16.0.0/16). - Nạp file ISO: pfSense-CE-2.7.2-RELEASE-amd64.iso.
+
+[x] BƯỚC 3: CÀI ĐẶT HỆ ĐIỀU HÀNH pfSense - Phân vùng tự động bằng Auto ZFS (Stripe trên ổ ảo da0). - Giải nén gói base.txz và cài đặt thành công, reboot hệ thống.
+
+[x] BƯỚC 4: THIẾT LẬP CỔNG LAN QUA MÀN HÌNH CONSOLE - Chọn Option 2 (Set interface(s) IP address) cho cổng LAN (em1). - Đặt IPv4 LAN: 10.0.0.1, Subnet bit count: 8 (255.0.0.0). - Tắt DHCP server trên LAN, giữ giao thức HTTPS (https://10.0.0.1/). - Máy thật ping kiểm tra IP 10.0.0.1 phản hồi thành công (0% loss).
+
+[x] BƯỚC 5: CẤU HÌNH BAN ĐẦU QUA TRÌNH DUYỆT WEB (SETUP WIZARD & DASHBOARD) - Truy cập https://10.0.0.1 bằng tài khoản admin. - Thiết lập DNS 8.8.8.8, Timezone: Asia/Ho_Chi_Minh. - Bỏ chọn chặn RFC1918 và bogon networks trên cổng WAN. - Đổi mật khẩu tài khoản admin và chuyển vào giao diện Dashboard.
+
+[x] BƯỚC 6: CẤU HÌNH VÙNG DMZ & OUTBOUND NAT - Gán card mạng em2 làm cổng OPT1, đổi tên thành DMZ. - Đặt IP tĩnh cho DMZ: 172.16.0.1/16, Gateway để None. - Firewall -> NAT -> Outbound: kích hoạt "Hybrid Outbound NAT rule generation". - Hệ thống tự động sinh rule NAT cho cả 2 dải 10.0.0.0/8 và 172.16.0.0/16.
+
+[x] BƯỚC 7: CHUẨN HÓA RULESET LAN & TẠO RULE NỀN TẢNG (BASELINE) - Firewall -> Rules -> LAN: Vô hiệu hóa (Disable) 2 rule mặc định "Default allow LAN to any rule". - Giữ nguyên Anti-Lockout Rule để bảo toàn quyền truy cập WebGUI. - Tạo rule nền tảng mới: + Action: Pass | Protocol: Any | Interface: LAN (IPv4) + Source: LAN subnets (10.0.0.0/8) | Destination: Any + Description: LAN to Internet - Diagnostics -> States -> Reset States: Tích chọn "Reset the firewall state table" và thực thi Reset.
+
+================================================================================ 3. CÁC HẠNG MỤC CẦN TRIỂN KHAI TIẾP THEO
+================================================================================
+[ ] Dựng máy ảo Windows Server làm Domain Controller (IP: 10.0.0.2/8, Gateway: 10.0.0.1).
+[ ] Cài đặt dịch vụ AD DS (forest vietnam.local) và DNS Forwarders (8.8.8.8).
+[ ] Kiểm thử bật/tắt rule nền tảng và kiểm tra ping/curl từ Domain Controller.
+[ ] Dựng máy ảo DMZ-Web (IP: 172.16.0.2/16) trên card LAN Segment dmz-net, cài IIS.
+[ ] Thực hiện 5 tình huống firewall (Chặn ICMP, Chỉ định Host ra mạng, Cô lập DMZ, Port Forward WAN 8080->80, Logging).
